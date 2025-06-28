@@ -325,17 +325,92 @@ def factor_to_quantile_dependent_double_sort(primary_factor: pd.DataFrame, secon
 
     return result
 
-def _compute_quantile_df(qt: pd.DataFrame, fr: pd.DataFrame, reindex=True, quantiles: int = 5):
+def _compute_quantile_df(
+        qt: pd.DataFrame, 
+        fr: pd.DataFrame, 
+        reindex = True, 
+        quantiles: int = 5
+) -> pd.DataFrame:
+    '''
+    Compute equal-weighted average forward returns for each quantile group.
+
+    Assumes that `qt` (quantile assignments) and `fr` (forward returns) are aligned
+    by index and columns — i.e., same dates (index) and same stocks (columns).
+
+    Parameters
+    ----------
+    qt : pd.DataFrame
+        Quantile assignment for each asset at each time.
+        Index: time, Columns: stock code, Values: quantile group (int from 1 to `quantiles`)
+    
+    fr : pd.DataFrame
+        Forward returns for each asset at each time.
+        Index: time, Columns: stock code, Values: future return
+
+    reindex : bool, default True
+        Whether to ensure the result has columns 1 to `quantiles` (even if some are missing at certain times)
+
+    quantiles : int, default 5
+        Number of quantile groups
+
+    Returns
+    -------
+    pd.DataFrame
+        A time-series DataFrame of average returns for each quantile group.
+        Index: time, Columns: quantile group (1 ~ `quantiles`)
+    '''
     # assume aligned
     result = {}
     for (dt, fr_row), (_, qt_row) in zip(fr.iterrows(), qt.iterrows()):
         result[dt] = fr_row.groupby(qt_row).mean()
     result = pd.DataFrame(result).T
     if reindex:
-        return result.reindex(columns=np.arange(1, quantiles + 1), copy=False)
+        return result.reindex(columns = np.arange(1, quantiles + 1), copy = False)
     return result
 
-def _compute_weighted_quantile_df(qt: pd.DataFrame, fr: pd.DataFrame, wt: pd.DataFrame, reindex= True, quantiles: int = 5):
+def _compute_weighted_quantile_df(
+        qt: pd.DataFrame, 
+        fr: pd.DataFrame, 
+        wt: pd.DataFrame, 
+        reindex = True, 
+        quantiles: int = 5
+) -> pd.DataFrame:
+    '''
+    Compute value-weighted average forward returns for each quantile group.
+
+    This is the weighted version of `_compute_quantile_df`, where the group-wise 
+    mean is computed using market capitalization.
+
+    Assumes that `qt`, `fr`, and `wt` are aligned by index and columns:
+    i.e., same dates (index) and same stocks (columns).
+
+    Parameters
+    ----------
+    qt : pd.DataFrame
+        Quantile assignment for each asset at each time.
+        Index: time, Columns: stock code, Values: quantile group (int from 1 to `quantiles`)
+
+    fr : pd.DataFrame
+        Forward returns for each asset at each time.
+        Index: time, Columns: stock code, Values: forward return
+
+    wt : pd.DataFrame
+        Value weights for each asset at each time (e.g., market capitalization).
+        Index: time, Columns: stock code, Values: weight
+
+    reindex : bool, default True
+        Whether to ensure the result has columns 1 to `quantiles` 
+        (even if some quantile groups are missing at some timestamps)
+
+    quantiles : int, default 5
+        Number of quantile groups
+
+    Returns
+    -------
+    pd.DataFrame
+        A time-series DataFrame of value-weighted average returns for each quantile group.
+        Index: time, Columns: quantile group (1 ~ `quantiles`)
+    '''
     # assume aligned
     result = {}
     for (dt, fr_row), (_, qt_row), (_, wt_row) in zip(fr.iterrows(), qt.iterrows(), wt.iterrows()):
