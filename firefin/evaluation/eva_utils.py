@@ -4,9 +4,10 @@
 # TODO: Move some common algorithms to fire/core/algorithm/
 
 import typing
-
+from typing import List
 import numpy as np
 import pandas as pd
+from pathlib import Path
 
 __all__ = [
     "compute_forward_returns",
@@ -220,6 +221,212 @@ def generate_latex_code(plot_path: str, summary_table: pd.DataFrame) -> str:
     latex_code = '\n'.join(latex_code).replace('_', '\_')
 
     return latex_code
+
+def _format_df_cols(
+    df: pd.DataFrame, 
+    percent_cols: List[int] = None, 
+    bracket_cols: List[int] = None
+) -> pd.DataFrame:
+    """
+    Format specific columns in a DataFrame:
+    - Columns in `percent_cols` will be formatted as percentages (e.g., '12.34%')
+    - Columns in `bracket_cols` will be formatted as bracketed values (e.g., '(12.34)')
+    - All other numeric columns will be formatted to 2 decimal places (e.g., '12.34')
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        The input DataFrame to format.
+    percent_cols : list of int, optional
+        List of column indices to format as plain percentages.
+    bracket_cols : list of int, optional
+        List of column indices, formatted as value with brackets.
+
+    Returns
+    -------
+    pd.DataFrame
+        A new DataFrame with specified columns formatted as strings.
+    """
+    formatted_df = df.copy().astype(object)
+
+    percent_cols = percent_cols or []
+    bracket_cols = bracket_cols or []
+    all_formatted = set(percent_cols + bracket_cols)
+
+    for col_idx in percent_cols:
+        formatted_df.iloc[:, col_idx] = formatted_df.iloc[:, col_idx].map(lambda x: f"{x:.2%}")
+
+    for col_idx in bracket_cols:
+        formatted_df.iloc[:, col_idx] = formatted_df.iloc[:, col_idx].map(lambda x: f"({x:.2})")
+
+    # Format remaining columns to 2 decimal places
+    for col_idx in range(formatted_df.shape[1]):
+        if col_idx not in all_formatted:
+            formatted_df.iloc[:, col_idx] = formatted_df.iloc[:, col_idx].map(lambda x: f"{x:.2f}")
+
+    return formatted_df
+
+def single_sort_table1_latex(
+    df1: pd.DataFrame,
+    df2: pd.DataFrame,
+    latex_dir: str
+):
+    '''
+    Generate a LaTeX-formatted table from two related DataFrames (df1 and df2), and write the result to a .tex file.
+
+    Parameters
+    ----------
+    df1 : pd.DataFrame
+        A DataFrame containing the main results for each portfolio. 
+        The index should represent portfolio names (e.g., 'Portfolio 1', ..., 'Portfolio N').
+        Columns (in order) must be:
+            0: Monthly Excess Return
+            1: Standard Deviation
+            2: Alpha (CAPM)
+            3: VWRF (CAPM)
+            4: Adj R-squared (CAPM)
+            5: Alpha (4-Factor Model)
+            6: RMRF (4-Factor Model)
+            7: SMB (4-Factor Model)
+            8: HML (4-Factor Model)
+            9: PR1YR (4-Factor Model)
+            10: Adj R-squared (4-Factor Model)
+
+    df2 : pd.DataFrame
+        A DataFrame containing standard errors corresponding to selected columns from df1.
+        The index must exactly match df1.
+        The columns (in order) are:
+            0: Std of Alpha (CAPM)
+            1: Std of VWRF (CAPM)
+            2: Std of Alpha (4-Factor Model)
+            3: Std of RMRF (4-Factor Model)
+            4: Std of SMB (4-Factor Model)
+            5: Std of HML (4-Factor Model)
+            6: Std of PR1YR (4-Factor Model)
+
+    latex_dir : str
+        File path to save the generated LaTeX table.
+
+    Returns
+    -------
+    None
+        The function writes LaTeX code directly to the specified file.
+    '''
+    percent_cols = [[0, 1, 2, 5], []]
+    bracket_cols = [[], list(range(7))]
+    mean_std_pairs = [[2, 0], [3, 1], [5, 2], [6, 3], [7, 4], [8, 5], [9, 6]]
+
+    # Interleave and merge two dataframes
+    index = df1.index
+    rows, cols = df1.shape
+    formatted_df1 = _format_df_cols(df1, percent_cols[0], bracket_cols[0])
+    formatted_df2 = _format_df_cols(df2, percent_cols[1], bracket_cols[1])
+    formatted_df2_expand = pd.DataFrame(np.full((rows, cols), np.nan), index = index).astype(object)
+    for i in range(rows):
+        for j, k in mean_std_pairs:
+            formatted_df2_expand.iloc[i, j] = formatted_df2.iloc[i, k]
+    formatted_df1 = pd.concat((pd.Series(index, index = index), formatted_df1), axis = 1)
+    formatted_df2_expand = pd.concat((pd.Series(np.full((rows), np.nan), index = index), formatted_df2_expand), axis = 1)
+    df3 = pd.DataFrame(np.full((rows * 2, df1.shape[1] + 1), np.nan)).astype(object)
+    for i in range(rows):
+        df3.iloc[2 * i] = formatted_df1.iloc[i]
+        df3.iloc[2 * i + 1] = formatted_df2_expand.iloc[i]
+    
+    df3_late_code = df3.to_latex(header = False, index = False, escape = True).replace('NaN', '')
+
+    # ['\\begin{tabular}', '\\end{tabular}', 'toprule', 'midrule', 'bottomrule'] have been typeset so deleted
+    df_latex_code = [
+        line for line in df3_late_code.splitlines()
+        if not any(i in line for i in ['\\begin{tabular}', '\\end{tabular}', 'toprule', 'midrule', 'bottomrule'])
+    ]
+
+    latex_code = [
+        r'\begin{table}[ht]',
+        r'\centering',
+        r'\begin{tabular}{*{12}c}',
+        r'\toprule',
+        r' & & & \multicolumn{3}{c}{\multirow{2}{*}{CAPM}} & \multicolumn{6}{c}{\multirow{2}{*}{4-Factor Model}} \\',
+        r' & Monthly & & \multicolumn{3}{c}{\hrulefill} & \multicolumn{6}{c}{\hrulefill} \\',
+        r' & Excess & Std & & & Adj & & & & & & Adj \\ ',
+        r'Portfolio & Return & Dev & Alpha & VWRF & R-sq & Alpha & RMRF & SMB & HML & PR1YR & R-sq \\',
+        r'\midrule'
+    ] + df_latex_code + \
+    [
+        r'\bottomrule',
+        r'\end{tabular}',
+        r'\end{table}'
+    ]
+    
+    latex_code = '\n'.join(latex_code)
+    Path(latex_dir).write_text(latex_code)
+    return 
+    
+def single_sort_table2_latex(
+    df: pd.DataFrame, 
+    latex_dir: str
+):
+    '''
+    Generate a LaTeX-formatted table from a single DataFrame and save the result to a .tex file.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        A DataFrame containing results for each portfolio.
+        The index must represent portfolio names (e.g., 'Portfolio 1', ..., 'Portfolio N').
+
+        Columns (in order) must be:
+            0: Excess Return
+            1: Standard Deviation
+            2: Alpha (4-Factor Model Ordinary Least Squares (OLS) Estimates)
+            3: Alpha-t (4-Factor Model Ordinary Least Squares (OLS) Estimates)
+            4: RMRF (4-Factor Model Ordinary Least Squares (OLS) Estimates)
+            5: SMB (4-Factor Model Ordinary Least Squares (OLS) Estimates)
+            6: HML (4-Factor Model Ordinary Least Squares (OLS) Estimates)
+            7: PR1YR (4-Factor Model Ordinary Least Squares (OLS) Estimates)
+            8: Expense Ratio
+            9: Turnover (Mturn)
+            10: Roundtrip Transaction Costs
+            11: Adjusted Alpha
+
+    latex_dir : str
+        File path to save the generated LaTeX table.
+
+    Returns
+    -------
+    None
+        The function writes LaTeX code directly to the specified file.
+    '''
+    percent_cols = [0, 1, 2, 10, 11]
+    bracket_cols = [3]
+
+    formatted_df = _format_df_cols(df, percent_cols, bracket_cols).to_latex(header = False, escape = True)
+
+    # ['\\begin{tabular}', '\\end{tabular}', 'toprule', 'midrule', 'bottomrule'] have been typeset so deleted
+    df_latex_code = [
+        line for line in formatted_df.splitlines()
+        if not any(i in line for i in ['\\begin{tabular}', '\\end{tabular}', 'toprule', 'midrule', 'bottomrule'])
+    ]
+
+    latex_code = [
+        r'\begin{table}[ht]',
+        r'\centering',
+        r'\begin{tabular}{*{13}c}',
+        r'\toprule',
+        r' & & & \multicolumn{6}{c}{\multirow{2}{*}{4-Factor Model Ordinary Least Squares (OLS) Estimates}} & & & Roundtrip \\',
+        r' & Excess & Standard & \multicolumn{6}{c}{\hrulefill} & Exp & Turn & Transaction & Adjusted \\',
+        r'Portfolio & Return & Deviation & Alpha & Alpha-t & RMRF & SMB & HML & PR1YR & Ration & (Mturn) & Costs & Alpha \\',
+        r'\midrule'
+    ] + df_latex_code + \
+    [
+        r'\bottomrule',
+        r'\end{tabular}',
+        r'\end{table}'
+    ]
+    
+    latex_code = '\n'.join(latex_code)
+    Path(latex_dir).write_text(latex_code)
+    return 
+    
 
 def factor_to_quantile(factor: pd.DataFrame, quantiles: int = 5) -> pd.DataFrame:
     """
