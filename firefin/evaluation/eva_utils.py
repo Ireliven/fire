@@ -342,6 +342,7 @@ def _interleave_dfs(
 
     return interleaved
 
+# TODO: find a more proper name standing for its function
 def single_sort_table1_latex(
         df1: pd.DataFrame,
         df2: pd.DataFrame,
@@ -431,7 +432,8 @@ def single_sort_table1_latex(
     latex_code = '\n'.join(latex_code)
 
     return latex_code
-    
+
+# TODO: find a more proper name standing for its function
 def single_sort_table2_latex(
         df: pd.DataFrame, 
 ) -> str:
@@ -490,7 +492,8 @@ def single_sort_table2_latex(
     latex_code = '\n'.join(latex_code)
 
     return latex_code
-    
+
+# TODO: find a more proper name standing for its function
 def single_sort_table3_latex(
         df1: pd.DataFrame,
         df2: pd.DataFrame
@@ -577,6 +580,7 @@ def single_sort_table3_latex(
     return latex_code
 
 # TODO: Complete the comments about df and return
+# TODO: find a more proper name standing for its function
 def fama_macbeth_latex(
         df1: pd.DataFrame,
         df2: pd.DataFrame,
@@ -635,10 +639,10 @@ def fama_macbeth_latex(
     mean_std_pairs = [[i, i] for i in range(df2.shape[1])]
 
     latex_list = []
-    df_dir = {1: df1, 2: df2, 3: df3, 4: df4}
+    df_dict = {1: df1, 2: df2, 3: df3, 4: df4}
     for i in [1, 3]:
-        formatted1 = _format_df_cols(df_dir[i], percent_cols[0], bracket_cols[0])
-        formatted2 = _format_df_cols(df_dir[i + 1], percent_cols[1], bracket_cols[1])
+        formatted1 = _format_df_cols(df_dict[i], percent_cols[0], bracket_cols[0])
+        formatted2 = _format_df_cols(df_dict[i + 1], percent_cols[1], bracket_cols[1])
         df_latex_code = _interleave_dfs(
             formatted1, 
             formatted2, 
@@ -678,6 +682,7 @@ def fama_macbeth_latex(
     return latex_code
 
 # TODO: Complete the comments about df and return
+# TODO: find a more proper name standing for its function
 def regression_latex(
         df1: pd.DataFrame,
         df2: pd.DataFrame,
@@ -737,10 +742,10 @@ def regression_latex(
     mean_std_pairs = [[i, i] for i in range(df2.shape[1])]
 
     latex_list = []
-    df_dir = {1: df1, 2: df2, 3: df3, 4: df4}
+    df_dict = {1: df1, 2: df2, 3: df3, 4: df4}
     for i in [1, 3]:
-        formatted1 = _format_df_cols(df_dir[i], percent_cols[0], bracket_cols[0])
-        formatted2 = _format_df_cols(df_dir[i + 1], percent_cols[1], bracket_cols[1]) 
+        formatted1 = _format_df_cols(df_dict[i], percent_cols[0], bracket_cols[0])
+        formatted2 = _format_df_cols(df_dict[i + 1], percent_cols[1], bracket_cols[1]) 
         df_latex_code = _interleave_dfs(
             formatted1, 
             formatted2, 
@@ -776,6 +781,7 @@ def regression_latex(
     return latex_code
 
 # TODO: Complete the comments about df and return
+# TODO: find a more proper name standing for its function
 def else1_latex(df1: pd.DataFrame, df2: pd.DataFrame) -> str:
     '''
     Generate LaTeX code for a two-panel table.
@@ -812,9 +818,9 @@ def else1_latex(df1: pd.DataFrame, df2: pd.DataFrame) -> str:
     # Model = ['CAPM', 'FF3', 'FF5', 'FF5M']
     # h_j = ['SMB2', 'SMB2*Mom', 'Mom2*RMW', 'Mkt-RF2','Mkt-RF2*RMW', 'Mkt-Rf*SMB', 'HML2*Mkt-RF']
     latex_list = []
-    df_dir = {1: df1, 2: df2}
+    df_dict = {1: df1, 2: df2}
     for i in [1, 2]:
-        df_latex_code = df_dir[i].to_latex(escape = True, header = False, float_format = '%.3f')
+        df_latex_code = df_dict[i].to_latex(escape = True, header = False, float_format = '%.3f')
         # ['\\begin{tabular}', 'toprule'] have been typeset so deleted
         df_latex_code = [
             line for line in df_latex_code.splitlines()
@@ -843,6 +849,7 @@ def else1_latex(df1: pd.DataFrame, df2: pd.DataFrame) -> str:
     return latex_code 
 
 # TODO: Complete the comments about df and return
+# TODO: find a more proper name standing for its function
 def else2_latex(df: pd.DataFrame) -> str:
     '''
     Generate LaTeX code for a regression R-squared comparison table.
@@ -886,6 +893,7 @@ def else2_latex(df: pd.DataFrame) -> str:
     return latex_code
 
 # TODO: Complete the comments about df and return
+# TODO: find a more proper name standing for its function
 def else3_latex(
         df: pd.DataFrame, 
         val1: float, 
